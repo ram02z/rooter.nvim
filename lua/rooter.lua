@@ -83,6 +83,9 @@ local function get_new_directory()
 end
 
 function M.root()
+  -- do not root if buftype is set
+  if vim.bo.buftype ~= "" then return end
+  
   -- do not root if in excluded filetypes
   local curr_filetype = vim.bo.filetype
 

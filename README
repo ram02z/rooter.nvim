@@ -1,0 +1,2 @@
+rooter.nvim attempts to find the root in the folowing order:
+lspconfig.util.root_pattern -> gitsigns dict -> current_buffer

@@ -1,109 +1,45 @@
-local lspconfig = require('lspconfig')
-local vim = vim
-local api = vim.api
-
 local M = {}
 
 local current_working_directory
 local root_fn
-local config
-local setup_config
-do
-  local default_config = {
-    manual = false,
-    echo = true,
-    patterns = {
-      '.git',
-      'Cargo.toml',
-      'go.mod',
-    },
-    cd_command = 'lcd',
-    non_project_files = "current",
-    filetypes_exclude = {
-      "terminal",
-      "quickfix",
-      "LuaTree",
-    },
-    start_path = function()
-      return vim.fn.expand [[%:p:h]]
-    end,
-  }
 
-  local function create_root_fn()
-    root_fn = lspconfig.util.root_pattern(config.patterns)
-  end
-
-  local function check_config(cfg)
-    if not (cfg.cd_command == "lcd" or cfg.cd_command == "cd" or cfg.cd_command == "tcd") then
-      api.nvim_err_writeln(string.format("%s is not a valid cd_command (must be cd, lcd, or tcd)", cfg.cd_command))
-      return false
-    else
-      return true
-    end
-
-    if not (cfg.non_project_files == 'current' or cfg.non_project_files == 'home') then
-      api.nvim_err_writeln(string.format("%s is not a valid value to non_project_files (must be home or current)", cfg.non_project_files))
-      return false
-    else
-      return true
-    end
-  end
-
-  setup_config = function(user_config)
-    local new_config = vim.tbl_extend("keep", user_config, default_config)
-    if check_config(new_config) then
-      config = new_config
-    else
-      api.nvim_err_writeln("There were errors when setting the config. Keeping default values.")
-      config = default_config
-    end
-    create_root_fn()
-  end
-end
-
-function M.setup(user_config)
-  setup_config(user_config)
-  if not config.manual then
-    vim.cmd [[augroup rooter]]
-    vim.cmd [[autocmd!]]
-    vim.cmd [[autocmd VimEnter,BufReadPost,BufEnter * lua require'rooter'.root()]]
-    vim.cmd [[augroup END]]
-  end
-end
-
-local function get_new_directory()
-  local res = root_fn(config.start_path())
-  if res then
-    return res
-  elseif config.non_project_files == "current" then
-    return config.start_path()
-  elseif config.non_project_files == "home" then
-    return "~"
+local function get_new_root()
+  local root_fn = require("lspconfig").util.root_pattern({
+    ".git",
+    "go.mod",
+    "Cargo.toml",
+  })
+  local start_path = vim.fn.expand[[%:p:h]]
+  local root = root_fn(start_path)
+  local gsd = vim.b.gitsigns_status_dict
+  if root then
+    return root
+  elseif gsd and gsd.root then
+    return gsd.root
+  else
+    return start_path
   end
 end
 
 function M.root()
-  -- do not root if buftype is set
-  if vim.bo.buftype ~= "" then return end
-  
-  -- do not root if in excluded filetypes
-  local curr_filetype = vim.bo.filetype
-
-  for _, exclude_filetype in pairs(config.filetypes_exclude or {}) do
-    if curr_filetype == exclude_filetype then return end
+  if vim.bo.buftype ~= "" and vim.bo.buftype ~= "nofile" then
+    return
   end
 
-  local new_dir = get_new_directory()
-
-  if new_dir == current_working_directory then return end
-  if new_dir == nil or new_dir == "" then return end
-
-  if config.echo then
-    print("[rooter] changing directory to" .. " " .. new_dir)
+  local stat = vim.loop.fs_stat(vim.fn.expand[[%:p]])
+  if stat == nil or (stat and stat.type ~= "file") then
+    return
   end
 
-  vim.cmd(config.cd_command .. " " .. new_dir)
-  current_working_directory = new_dir
+  local new_root = get_new_root()
+
+  if new_root == current_working_directory then return end
+  if new_root == nil or new_dir == "" then return end
+
+
+  vim.cmd("cd " .. new_root)
+  vim.notify("cwd changed to " .. new_root, vim.log.levels.INFO, { title = "[rooter]" })
+  current_working_directory = new_root
 end
 
 return M

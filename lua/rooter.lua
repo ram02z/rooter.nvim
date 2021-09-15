@@ -33,8 +33,8 @@ function M.root()
 
   local new_root = get_new_root()
 
+  if new_root == nil or new_root == "" then return end
   if new_root == current_working_directory then return end
-  if new_root == nil or new_dir == "" then return end
 
 
   vim.cmd("lcd " .. new_root)

@@ -37,8 +37,7 @@ function M.root()
   if new_root == nil or new_dir == "" then return end
 
 
-  vim.cmd("cd " .. new_root)
-  vim.notify("cwd changed to " .. new_root, vim.log.levels.INFO, { title = "[rooter]" })
+  vim.cmd("lcd " .. new_root)
   current_working_directory = new_root
 end
 
